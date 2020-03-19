@@ -28,7 +28,8 @@ def inject(paths, fmt):
         qtl_nom_pvalue = config.qtl_nom_pvalue,
         qtl_window = config.qtl_window,
         qtl_seed = config.qtl_seed,
-        qtl_region = config.qtl_region)
+        qtl_region = config.qtl_region,
+        software_rscript = config.software_rscript)
 
 
 def jobs_for_region(region):
@@ -86,6 +87,7 @@ def jobs_for_region(region):
     ''')
 
     create_bed = inject(paths, r'''
+    #!/usr/bin/env bash
     #SBATCH --time 1:00:00
     #SBATCH --mem 40G
 
@@ -96,10 +98,10 @@ def jobs_for_region(region):
     ''')
 
     run_gsmr = inject(paths, r'''
+    #!/usr/bin/env bash
     #SBATCH --time 6:00:00
     #SBATCH --mem 40G
 
-    #!/usr/bin/env bash
     gcta_1.92.1b6 \
         --bfile "{gen_bed}" \
         --gsmr-file "{gsmr_exposure}" "{gsmr_outcome}" \
@@ -109,11 +111,21 @@ def jobs_for_region(region):
         --effect-plot \
         --clump-r2 0.1
 
-    cat "{gsmr_out"} \
+    cat "{gsmr_out}.gsmr" \
             | grep -v 'nan.*nan.*nan.*nan' \
             | column -t \
             > "{gsmr_out_filtered}"
 
+    ''')
+
+    plot_gsmr = inject(paths, r'''
+    #!/usr/bin/env bash
+    #SBATCH --time 8:00:00
+    #SBATCH --mem 40G
+
+    "{software_rscript}" _scripts/run_gsmr_plot.r \
+        "{gsmr_out}.eff_plot.gz" \
+        "{gsmr_out_filtered}"
     ''')
 
     basedirs = sorted(list(set(map(os.path.dirname, paths))))
@@ -129,5 +141,6 @@ def jobs_for_region(region):
         qtltools_exposure,
         qtltools_outcome,
         create_bed,
-        run_gsmr
+        run_gsmr,
+        plot_gsmr
     ]

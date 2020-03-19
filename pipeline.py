@@ -5,7 +5,7 @@ import config
 
 region_jobs = job_definitions.jobs_for_region(config.qtl_region)
 
-os.makedirs(config.job_directory)
+os.makedirs(config.job_directory, exist_ok=True)
 submit_file = os.path.join(config.job_directory, 'submit.sh')
 
 with open(submit_file, 'w') as f:
