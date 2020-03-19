@@ -20,6 +20,7 @@ def inject(paths, fmt):
         gsmr_exposure = register_path('{0}/{1}/gsmr/gsmr_exposure.txt'),
         gsmr_outcome = register_path('{0}/{1}/gsmr/gsmr_outcome.txt'),
         gsmr_out = register_path('{0}/{1}/gsmr/gsmr.txt'),
+        gsmr_out_filtered = register_path('{0}/{1}.gsmr'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         covariance = config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
@@ -49,7 +50,7 @@ def jobs_for_region(region):
             --std-err \
             --region    "{qtl_region}"
 
-    _scripts/split_qtl_to_cojo.py \
+    python3 _scripts/split_qtl_to_cojo.py \
             "{exposure_qtl}" \
             "{exposure_cojo_dir}"
 
@@ -75,7 +76,7 @@ def jobs_for_region(region):
             --std-err \
             --region    "{qtl_region}"
 
-    _scripts/split_qtl_to_cojo.py \
+    python3 _scripts/split_qtl_to_cojo.py \
             "{outcome_qtl}" \
             "{outcome_cojo_dir}"
 
@@ -107,6 +108,12 @@ def jobs_for_region(region):
         --gwas-thresh 0.01 \
         --effect-plot \
         --clump-r2 0.1
+
+    cat "{gsmr_out"} \
+            | grep -v 'nan.*nan.*nan.*nan' \
+            | column -t \
+            > "{gsmr_out_filtered}"
+
     ''')
 
     basedirs = sorted(list(set(map(os.path.dirname, paths))))

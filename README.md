@@ -3,6 +3,8 @@
 This pipeline researches the relation between methylation
 and mRNA expression using GSMR.
 
+The B allele will be
+
 ## Pipeline steps
 
   - Calculation of eQTLs using a patched QTLtools v1.2
@@ -13,6 +15,14 @@ and mRNA expression using GSMR.
   - Creating the GSMR exposure & outcomes files
   - Running GSMR in bi- mode
   - Tabulating GSMR output + SNPs & Plotting
+
+## Todo:
+
+  - Implement MAF filter
+  - Some freedom in sumstats specification
+  - Find correct p-value threshold
+  - Implement user-specific configs
+  - Implement covariates exclusion
 
 ## eQTL discovery
 
