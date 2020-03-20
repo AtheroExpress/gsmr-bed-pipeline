@@ -43,15 +43,17 @@ def jobs_for_region(region):
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
 
-    vendor/qtltools_v1.2-stderr cis \
-            --nominal   "{qtl_nom_pvalue}" \
-            --vcf       "{vcf}" \
-            --bed       "{exposure_bed}" \
-            --cov       "{covariance}" \
-            --out       "{exposure_qtl}" \
-            --window    "{qtl_window}" \
-            --seed      "{qtl_seed}" \
-            --std-err {arg_QTLtools_region}
+    if [ ! -f "{exposure_qtl}" ]; then
+        vendor/qtltools_v1.2-stderr cis \
+                --nominal   "{qtl_nom_pvalue}" \
+                --vcf       "{vcf}" \
+                --bed       "{exposure_bed}" \
+                --cov       "{covariance}" \
+                --out       "{exposure_qtl}" \
+                --window    "{qtl_window}" \
+                --seed      "{qtl_seed}" \
+                --std-err {arg_QTLtools_region}
+    fi
 
     python3 _scripts/split_qtl_to_cojo.py \
             "{exposure_qtl}" \
@@ -69,15 +71,17 @@ def jobs_for_region(region):
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
 
-    vendor/qtltools_v1.2-stderr cis \
-            --nominal   "{qtl_nom_pvalue}" \
-            --vcf       "{vcf}" \
-            --bed       "{outcome_bed}" \
-            --cov       "{covariance}" \
-            --out       "{outcome_qtl}" \
-            --window    "{qtl_window}" \
-            --seed      "{qtl_seed}" \
-            --std-err {arg_QTLtools_region}
+    if [ ! -f "{outcome_qtl}" ]; then
+        vendor/qtltools_v1.2-stderr cis \
+                --nominal   "{qtl_nom_pvalue}" \
+                --vcf       "{vcf}" \
+                --bed       "{outcome_bed}" \
+                --cov       "{covariance}" \
+                --out       "{outcome_qtl}" \
+                --window    "{qtl_window}" \
+                --seed      "{qtl_seed}" \
+                --std-err {arg_QTLtools_region}
+    fi
 
     python3 _scripts/split_qtl_to_cojo.py \
             "{outcome_qtl}" \
@@ -105,14 +109,16 @@ def jobs_for_region(region):
     #SBATCH --time 6:00:00
     #SBATCH --mem 40G
 
-    gcta_1.92.1b6 \
-        --bfile "{gen_bed}" \
-        --gsmr-file "{gsmr_exposure}" "{gsmr_outcome}" \
-        --gsmr-direction 2 \
-        --out "{gsmr_out}" \
-        --gwas-thresh 0.01 \
-        --effect-plot \
-        --clump-r2 0.1
+    if [ ! -f "{gsmr_out}.gsmr" ]; then
+        gcta_1.92.1b6 \
+            --bfile "{gen_bed}" \
+            --gsmr-file "{gsmr_exposure}" "{gsmr_outcome}" \
+            --gsmr-direction 2 \
+            --out "{gsmr_out}" \
+            --gwas-thresh 0.01 \
+            --effect-plot \
+            --clump-r2 0.1
+    fi
 
     cat "{gsmr_out}.gsmr" \
             | grep -v 'nan.*nan.*nan.*nan' \
