@@ -11,8 +11,8 @@ def inject(region, paths, fmt):
         return path
     fmt = textwrap.dedent(fmt).lstrip('\n')
     return fmt.format(
-        exposure_bed = config.exposure_bed,
-        outcome_bed = config.outcome_bed,
+        exposure_bed = config.exposure_bed.format(chr=chrom),
+        outcome_bed = config.outcome_bed.format(chr=chrom),
         exposure_qtl = register_path('{0}/{1}/exposure/exposure.nom.txt'),
         outcome_qtl = register_path('{0}/{1}/outcome/outcome.nom.txt'),
         exposure_cojo_dir = register_path('{0}/{1}/exposure/exposure.cojo/'),
