@@ -6,7 +6,7 @@ COJO_HEADER = 'SNP A1 A2 freq b se p n'.split()
 
 sumstats_chr21 = '/hpc/dhl_ec/data/_ae_originals/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11/aegs.qc.1kgp3hrcr11.chr21.sumstats.txt.gz'
 
-def load_snp_info(filename):
+def load_snp_info(filename, MAF_threshold=0.05):
     import gzip
     '''load SNP summary statistics info
 
@@ -35,6 +35,8 @@ def load_snp_info(filename):
             AB_calls = float(row['all_AB'])
             BB_calls = float(row['all_BB'])
             B_freq = (2*BB_calls + AB_calls) / (2*AA_calls + 2*AB_calls + 2*BB_calls)
+            if 0 < MAF_threshold < 0.5 and (B_freq < MAF_threshold or B_freq > 1 - MAF_threshold):
+                continue
             rsid = row['rsid']
             effect_allele = row['alleleB']
             other_allele = row['alleleA']
@@ -47,8 +49,9 @@ def load_snp_info(filename):
 def main():
     qtltools_nom_stderr_output = sys.argv[1]
     outdir = sys.argv[2]
+    MAF_threshold = float(sys.argv[3]) if len(sys.argv) >= 3 else 0.05
 
-    snp_info = load_snp_info(sumstats_chr21)
+    snp_info = load_snp_info(sumstats_chr21, MAF_threshold)
 
     current = None
     lines = []
