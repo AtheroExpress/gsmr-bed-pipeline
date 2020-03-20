@@ -21,6 +21,7 @@ def inject(paths, fmt):
         gsmr_outcome = register_path('{0}/{1}/gsmr/gsmr_outcome.txt'),
         gsmr_out = register_path('{0}/{1}/gsmr/gsmr.txt'),
         gsmr_out_filtered = register_path('{0}/{1}.gsmr'),
+        gsmr_plot_dir = register_path('{0}/{1}/plot/'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         covariance = config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
@@ -125,7 +126,8 @@ def jobs_for_region(region):
 
     "{software_rscript}" _scripts/run_gsmr_plot.r \
         "{gsmr_out}.eff_plot.gz" \
-        "{gsmr_out_filtered}"
+        "{gsmr_out_filtered}" \
+        "{gsmr_plot_dir}"
     ''')
 
     basedirs = sorted(list(set(map(os.path.dirname, paths))))
