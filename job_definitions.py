@@ -2,10 +2,10 @@ import os
 import textwrap
 import config
 
-def inject(paths, fmt):
-    chrom = config.qtl_region.split(':')[0]
+def inject(region, paths, fmt):
+    chrom = region.split(':')[0]
     def register_path(fmt):
-        path = fmt.format(config.job_directory, chrom)
+        path = fmt.format(config.job_directory, region)
         if path not in paths:
             paths.append(path)
         return path
@@ -29,14 +29,15 @@ def inject(paths, fmt):
         qtl_nom_pvalue = config.qtl_nom_pvalue,
         qtl_window = config.qtl_window,
         qtl_seed = config.qtl_seed,
-        qtl_region = config.qtl_region,
-        software_rscript = config.software_rscript)
-
+        region = region if ':' in region else False,
+        software_rscript = config.software_rscript,
+        arg_QTLtools_region = '--region "{0}"'.format(region) if ':' in region else ''
+        )
 
 def jobs_for_region(region):
     paths = []
 
-    qtltools_exposure = inject(paths, r'''
+    qtltools_exposure = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
@@ -49,8 +50,7 @@ def jobs_for_region(region):
             --out       "{exposure_qtl}" \
             --window    "{qtl_window}" \
             --seed      "{qtl_seed}" \
-            --std-err \
-            --region    "{qtl_region}"
+            --std-err {arg_QTLtools_region}
 
     python3 _scripts/split_qtl_to_cojo.py \
             "{exposure_qtl}" \
@@ -62,7 +62,7 @@ def jobs_for_region(region):
     ''')
 
 
-    qtltools_outcome = inject(paths, r'''
+    qtltools_outcome = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
@@ -75,8 +75,7 @@ def jobs_for_region(region):
             --out       "{outcome_qtl}" \
             --window    "{qtl_window}" \
             --seed      "{qtl_seed}" \
-            --std-err \
-            --region    "{qtl_region}"
+            --std-err {arg_QTLtools_region}
 
     python3 _scripts/split_qtl_to_cojo.py \
             "{outcome_qtl}" \
@@ -87,7 +86,7 @@ def jobs_for_region(region):
             > "{gsmr_outcome}"
     ''')
 
-    create_bed = inject(paths, r'''
+    create_bed = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 1:00:00
     #SBATCH --mem 40G
@@ -98,7 +97,7 @@ def jobs_for_region(region):
             --out "{gen_bed}"
     ''')
 
-    run_gsmr = inject(paths, r'''
+    run_gsmr = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 6:00:00
     #SBATCH --mem 40G
@@ -117,9 +116,15 @@ def jobs_for_region(region):
             | column -t \
             > "{gsmr_out_filtered}"
 
+    python3 _scripts/summarize_gsmr.py \
+            "{gsmr_out_filtered}" \
+            "{exposure_qtl}" \
+            "{outcome_qtl}"\
+            | column -t \
+            > "{gsmr_out_filtered}.summary"
     ''')
 
-    plot_gsmr = inject(paths, r'''
+    plot_gsmr = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 8:00:00
     #SBATCH --mem 40G
@@ -136,7 +141,7 @@ def jobs_for_region(region):
     create_dirs = textwrap.dedent(r'''
     #!/usr/bin/env bash
     {0}
-    ''').format(create_dirs).lstrip('\n')
+    '''.lstrip('\n')).format(create_dirs)
 
     return [
         create_dirs,
