@@ -58,7 +58,7 @@ def jobs_for_region(region):
     python3 _scripts/split_qtl_to_cojo.py \
             "{exposure_qtl}" \
             "{exposure_cojo_dir}" \
-            "{MAF_threshold}
+            "{MAF_threshold}"
 
     find "{exposure_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \
@@ -86,7 +86,7 @@ def jobs_for_region(region):
     python3 _scripts/split_qtl_to_cojo.py \
             "{outcome_qtl}" \
             "{outcome_cojo_dir}" \
-            "{MAF_threshold}
+            "{MAF_threshold}"
 
     find "{outcome_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \

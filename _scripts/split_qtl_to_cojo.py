@@ -49,7 +49,7 @@ def load_snp_info(filename, MAF_threshold=0.05):
 def main():
     qtltools_nom_stderr_output = sys.argv[1]
     outdir = sys.argv[2]
-    MAF_threshold = float(sys.argv[3]) if len(sys.argv) >= 3 else 0.05
+    MAF_threshold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.05
 
     snp_info = load_snp_info(sumstats_chr21, MAF_threshold)
 

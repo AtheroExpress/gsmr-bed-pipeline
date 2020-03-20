@@ -14,7 +14,7 @@ def main():
         with open(submit_file, 'w') as f:
             print(textwrap.dedent(r'''
             #!/usr/bin/env bash
-            #SBATCH --time 15:00:00
+            #SBATCH --time 25:00:00
             #SBATCH --mem 40G
 
             set -ex
