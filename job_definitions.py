@@ -25,6 +25,7 @@ def inject(region, paths, fmt):
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         covariance = config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
+        sumstats = config.sumstats_per_chr.format(chr=chrom),
         job_directory = config.job_directory,
         qtl_nom_pvalue = config.qtl_nom_pvalue,
         qtl_window = config.qtl_window,
@@ -55,10 +56,16 @@ def jobs_for_region(region):
                 --std-err {arg_QTLtools_region}
     fi
 
-    python3 _scripts/split_qtl_to_cojo.py \
-            "{exposure_qtl}" \
-            "{exposure_cojo_dir}" \
-            "{MAF_threshold}"
+    set +x
+    if [ -z "$(ls -A {exposure_cojo_dir} | head -n 1)" ]; then
+        set -x
+        python3 _scripts/split_qtl_to_cojo.py \
+                "{exposure_qtl}" \
+                "{sumstats}" \
+                "{exposure_cojo_dir}" \
+                "{MAF_threshold}"
+    fi
+    set -x
 
     find "{exposure_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \
@@ -83,10 +90,16 @@ def jobs_for_region(region):
                 --std-err {arg_QTLtools_region}
     fi
 
-    python3 _scripts/split_qtl_to_cojo.py \
-            "{outcome_qtl}" \
-            "{outcome_cojo_dir}" \
-            "{MAF_threshold}"
+    set +x
+    if [ -z "$(ls -A {outcome_cojo_dir} | head -n 1)" ]; then
+        set -x
+        python3 _scripts/split_qtl_to_cojo.py \
+                "{outcome_qtl}" \
+                "{sumstats}" \
+                "{outcome_cojo_dir}" \
+                "{MAF_threshold}"
+    fi
+    set -x
 
     find "{outcome_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \
@@ -99,9 +112,11 @@ def jobs_for_region(region):
     #SBATCH --mem 40G
 
     #!/usr/bin/env bash
-    plink2 --make-bed \
-            --vcf "{vcf}" \
-            --out "{gen_bed}"
+    if [ ! -f "{gen_bed}.bed" ]; then
+        plink2 --make-bed \
+                --vcf "{vcf}" \
+                --out "{gen_bed}"
+    fi
     ''')
 
     run_gsmr = inject(region, paths, r'''

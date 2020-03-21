@@ -4,8 +4,6 @@ import sys
 
 COJO_HEADER = 'SNP A1 A2 freq b se p n'.split()
 
-sumstats_chr21 = '/hpc/dhl_ec/data/_ae_originals/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11/aegs.qc.1kgp3hrcr11.chr21.sumstats.txt.gz'
-
 def load_snp_info(filename, MAF_threshold=0.05):
     import gzip
     '''load SNP summary statistics info
@@ -22,7 +20,7 @@ def load_snp_info(filename, MAF_threshold=0.05):
 
     '''
     snp_info = {}
-    with gzip.open(sumstats_chr21, 'rt') as f:
+    with gzip.open(filename, 'rt') as f:
         header = None
         for line in f:
             if line.startswith('#'):
@@ -35,9 +33,11 @@ def load_snp_info(filename, MAF_threshold=0.05):
             AB_calls = float(row['all_AB'])
             BB_calls = float(row['all_BB'])
             B_freq = (2*BB_calls + AB_calls) / (2*AA_calls + 2*AB_calls + 2*BB_calls)
+            rsid = row['rsid']
             if 0 < MAF_threshold < 0.5 and (B_freq < MAF_threshold or B_freq > 1 - MAF_threshold):
                 continue
-            rsid = row['rsid']
+            if rsid.endswith(',.'):
+                rsid = rsid[:-2]
             effect_allele = row['alleleB']
             other_allele = row['alleleA']
             eaf = B_freq
@@ -48,10 +48,13 @@ def load_snp_info(filename, MAF_threshold=0.05):
 
 def main():
     qtltools_nom_stderr_output = sys.argv[1]
-    outdir = sys.argv[2]
-    MAF_threshold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.05
+    sumstats_file = sys.argv[2]
+    outdir = sys.argv[3]
+    MAF_threshold = float(sys.argv[4]) if len(sys.argv) > 4 else 0.05
 
-    snp_info = load_snp_info(sumstats_chr21, MAF_threshold)
+    snp_info = load_snp_info(sumstats_file, MAF_threshold)
+
+    print('read', len(snp_info), 'snps')
 
     current = None
     lines = []
@@ -63,9 +66,10 @@ def main():
     # cg17035109 21 10882030 10882030 - 15372 999474 21:9882556,. 21 9882556 9882556 1.31758e-19 0.170322 -1.8952e-15  1.99411e-16 0
 
     nfiles = 0
+    nlines = 0
 
     def submit():
-        nonlocal nfiles
+        nonlocal nfiles, nlines
         #if nfiles > 50: exit(0)
         if lines:
             nfiles += 1
@@ -78,7 +82,6 @@ def main():
                     if snp_id.endswith(',.'):
                         snp_id = snp_id[:-2]
                     if snp_id not in snp_info:
-                        #print('ERR NOT FOUND', snp_id)
                         continue
                     snp_chr = parts[8]
                     snp_pos = parts[9]
@@ -87,6 +90,7 @@ def main():
                     snp_se = parts[14]
                     A1, A2, A1freq, n = snp_info[snp_id]
                     print(snp_id+',.', A1, A2, A1freq, snp_b, snp_se, snp_p, n, file=f)
+                    nlines += 1
         del lines[:]
 
     with open(qtltools_nom_stderr_output) as f:
@@ -97,6 +101,7 @@ def main():
                 current = probe
             lines.append(line.rstrip())
     submit()
+    print('wrote', nlines, 'qtls in', nlines, 'cojo files')
 
 if __name__ == '__main__':
     main()
