@@ -2,3 +2,15 @@ __pycache__/
 slurm-*.out
 /jobdir/
 /_data/
+/2020-03-25-first-gw-run/
+/2020-03-26-mvalue/
+/2020-03-31-new_cov/
+/2020-04-06-arrayjob/
+/2020-04-06-max-power/
+/2020-04-09-10mb/
+/2020-04-09-1mb/
+/_mvalues/
+/cmd
+/gwas/
+/newjob.sh
+

@@ -1,5 +1,6 @@
 import sys
 import collections
+import glob
 
 GSMR_HEADER = 'Exposure Outcome bxy se p nsnp'
 
@@ -20,13 +21,14 @@ def read_qtltools(filename):
             row = QTL1_2SERow(line.strip(), *line.split())
             yield row
 
-def extract_qtls(filename, keep):
+def extract_qtls(pattern, keep):
     res = collections.defaultdict(dict) # { phenotype : { genotype : row }
-    for row in read_qtltools(filename):
-        if row.phenotype in keep:
-            geno = row.genotype
-            if geno.endswith(',.'): geno = geno[:-2]
-            res[row.phenotype][geno] = row
+    for filename in glob.glob(pattern):
+        for row in read_qtltools(filename):
+            if row.phenotype in keep:
+                geno = row.genotype
+                if geno.endswith(',.'): geno = geno[:-2]
+                res[row.phenotype][geno] = row
     return dict(res)
 
 def format_region(row):
@@ -49,11 +51,14 @@ def main(gsmr_out_filename, exposure_qtls_filename, outcome_qtls_filename):
     for row in gsmr_rows:
         exposure = exposures.get(row.Exposure, outcomes.get(row.Exposure))
         outcome = exposures.get(row.Outcome, outcomes.get(row.Outcome))
-        first_exposure = next(iter(exposure.values()))
-        first_outcome = next(iter(outcome.values()))
-        exposure_region = format_region(first_exposure)
-        outcome_region = format_region(first_outcome)
-        common_genotypes = set(exposure) & set(outcome)
+        try:
+            first_exposure = next(iter(exposure.values()))
+            first_outcome = next(iter(outcome.values()))
+            exposure_region = format_region(first_exposure)
+            outcome_region = format_region(first_outcome)
+            common_genotypes = set(exposure) & set(outcome)
+        except:
+            common_genotypes = ['ERROR']
         print(*row.raw.split(),  exposure_region, outcome_region, ';'.join(common_genotypes))
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import glob
 
 COJO_HEADER = 'SNP A1 A2 freq b se p n'.split()
 
@@ -47,7 +48,7 @@ def load_snp_info(filename, MAF_threshold=0.05):
     return snp_info
 
 def main():
-    qtltools_nom_stderr_output = sys.argv[1]
+    qtltools_nom_stderr_output_pattern = sys.argv[1]
     sumstats_file = sys.argv[2]
     outdir = sys.argv[3]
     MAF_threshold = float(sys.argv[4]) if len(sys.argv) > 4 else 0.05
@@ -93,15 +94,16 @@ def main():
                     nlines += 1
         del lines[:]
 
-    with open(qtltools_nom_stderr_output) as f:
-        for line in f:
-            probe, rest = line.split(None, 1)
-            if probe != current:
-                submit()
-                current = probe
-            lines.append(line.rstrip())
-    submit()
-    print('wrote', nlines, 'qtls in', nlines, 'cojo files')
+    for filename in glob.glob(qtltools_nom_stderr_output_pattern):
+        with open(filename) as f:
+            for line in f:
+                probe, rest = line.split(None, 1)
+                if probe != current:
+                    submit()
+                    current = probe
+                lines.append(line.rstrip())
+        submit()
+        print(filename, 'wrote', nlines, 'qtls in', nlines, 'cojo files')
 
 if __name__ == '__main__':
     main()

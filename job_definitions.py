@@ -17,10 +17,12 @@ def inject(region, paths, fmt):
         outcome_qtl = register_path('{0}/{1}/outcome/outcome.nom.txt'),
         exposure_cojo_dir = register_path('{0}/{1}/exposure/exposure.cojo/'),
         outcome_cojo_dir = register_path('{0}/{1}/outcome/outcome.cojo/'),
+        gsmr_combinations = register_path('{0}/{1}/gsmr/gsmr_combinations.txt'),
         gsmr_exposure = register_path('{0}/{1}/gsmr/gsmr_exposure.txt'),
         gsmr_outcome = register_path('{0}/{1}/gsmr/gsmr_outcome.txt'),
-        gsmr_out = register_path('{0}/{1}/gsmr/gsmr.txt'),
+        gsmr_out_dir = register_path('{0}/{1}/gsmr/combinations/'),
         gsmr_out_filtered = register_path('{0}/{1}.gsmr'),
+        gsmr_out='deprecated',
         gsmr_plot_dir = register_path('{0}/{1}/plot/'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         covariance = config.covariance,
@@ -30,10 +32,14 @@ def inject(region, paths, fmt):
         qtl_nom_pvalue = config.qtl_nom_pvalue,
         qtl_window = config.qtl_window,
         qtl_seed = config.qtl_seed,
-        region = region if ':' in region else False,
+        #region = region if ':' in region else '{0:02d}'.format(int(chrom)), # hacky
         software_rscript = config.software_rscript,
-        arg_QTLtools_region = '--region "{0}"'.format(region) if ':' in region else '',
-        MAF_threshold = float(config.maf_threshold)
+        MAF_threshold_exposure = float(config.maf_threshold_exposure),
+        MAF_threshold_outcome = float(config.maf_threshold_outcome),
+        excl_cov_exposure_file = config.excl_cov_exposure_file,
+        excl_cov_outcome_file = config.excl_cov_outcome_file,
+        gsmr_r2 = config.gsmr_r2,
+        gsmr_p = config.gsmr_p
         )
 
 def jobs_for_region(region):
@@ -43,63 +49,74 @@ def jobs_for_region(region):
     #!/usr/bin/env bash
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
+    #SBATCH --array=1-50
 
-    if [ ! -f "{exposure_qtl}" ]; then
+    if [ ! -f "{exposure_qtl}.${{SLURM_ARRAY_TASK_ID}}" ]; then
         vendor/qtltools_v1.2-stderr cis \
                 --nominal   "{qtl_nom_pvalue}" \
                 --vcf       "{vcf}" \
                 --bed       "{exposure_bed}" \
                 --cov       "{covariance}" \
-                --out       "{exposure_qtl}" \
+                --out       "{exposure_qtl}".${{SLURM_ARRAY_TASK_ID}} \
                 --window    "{qtl_window}" \
+                --exclude-covariates "{excl_cov_outcome_file}" \
                 --seed      "{qtl_seed}" \
-                --std-err {arg_QTLtools_region}
+                --std-err \
+                --chunk ${{SLURM_ARRAY_TASK_ID}} ${{SLURM_ARRAY_TASK_COUNT}}
     fi
+    ''')
 
-    set +x
+    qtltools_exposure_collect = inject(region, paths, r'''
+    #!/usr/bin/env bash
+    #SBATCH --time 4:00:00
+    #SBATCH --mem 20G
+
     if [ -z "$(ls -A {exposure_cojo_dir} | head -n 1)" ]; then
-        set -x
         python3 _scripts/split_qtl_to_cojo.py \
-                "{exposure_qtl}" \
+                "{exposure_qtl}".'*' \
                 "{sumstats}" \
                 "{exposure_cojo_dir}" \
-                "{MAF_threshold}"
+                "{MAF_threshold_exposure}"
     fi
-    set -x
 
     find "{exposure_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \
             > "{gsmr_exposure}"
     ''')
 
-
     qtltools_outcome = inject(region, paths, r'''
     #!/usr/bin/env bash
     #SBATCH --time 10:00:00
     #SBATCH --mem 40G
+    #SBATCH --array=1-50
 
-    if [ ! -f "{outcome_qtl}" ]; then
+    if [ ! -f "{outcome_qtl}.${{SLURM_ARRAY_TASK_ID}}" ]; then
         vendor/qtltools_v1.2-stderr cis \
                 --nominal   "{qtl_nom_pvalue}" \
                 --vcf       "{vcf}" \
                 --bed       "{outcome_bed}" \
                 --cov       "{covariance}" \
-                --out       "{outcome_qtl}" \
+                --out       "{outcome_qtl}".${{SLURM_ARRAY_TASK_ID}} \
                 --window    "{qtl_window}" \
+                --exclude-covariates "{excl_cov_exposure_file}" \
                 --seed      "{qtl_seed}" \
-                --std-err {arg_QTLtools_region}
+                --std-err \
+                --chunk ${{SLURM_ARRAY_TASK_ID}} ${{SLURM_ARRAY_TASK_COUNT}}
     fi
+    ''')
 
-    set +x
+    qtltools_outcome_collect = inject(region, paths, r'''
+    #!/usr/bin/env bash
+    #SBATCH --time 2:00:00
+    #SBATCH --mem 20G
+
     if [ -z "$(ls -A {outcome_cojo_dir} | head -n 1)" ]; then
-        set -x
         python3 _scripts/split_qtl_to_cojo.py \
-                "{outcome_qtl}" \
+                "{outcome_qtl}".'*' \
                 "{sumstats}" \
                 "{outcome_cojo_dir}" \
-                "{MAF_threshold}"
+                "{MAF_threshold_outcome}"
     fi
-    set -x
 
     find "{outcome_cojo_dir}" -type f \
             | awk -F / '{{print $NF " " $0}}' \
@@ -119,32 +136,64 @@ def jobs_for_region(region):
     fi
     ''')
 
+    gsmr_pairs = inject(region, paths, r'''
+    #!/usr/bin/env bash
+    #SBATCH --time 15:00:00
+    #SBATCH --mem 60G
+
+    if [ ! -f "{gsmr_combinations}" ]; then
+        python3 _scripts/gsmr_pairs.py \
+                "{gsmr_exposure}" \
+                "{gsmr_outcome}" \
+                > "{gsmr_combinations}"
+    fi
+    ''')
+
     run_gsmr = inject(region, paths, r'''
     #!/usr/bin/env bash
-    #SBATCH --time 6:00:00
+    #SBATCH --time 2:00:00
+    #SBATCH --mem 40G
+    #SBATCH --array 0-99
+
+    cat "{gsmr_combinations}" \
+        | awk "(NR-1)%${{SLURM_ARRAY_TASK_COUNT}} == ${{SLURM_ARRAY_TASK_ID}}" \
+        | while read line; do
+        if [ ! -f "{gsmr_out_dir}"/"${{combination}}.log" ]; then
+            combination=$(echo "$line" | awk '{{print $1 "-" $2}}')
+            exposure=$(echo "$line" | awk '{{print $1}}')
+            outcome=$(echo "$line" | awk '{{print $2}}')
+            exposure_file=$(echo "$line" | awk '{{print $3}}')
+            outcome_file=$(echo "$line" | awk '{{print $4}}')
+            echo "${{exposure}}" "${{exposure_file}}" > "{gsmr_out_dir}/${{combination}}.gsmr_exposure.txt"
+            echo "${{outcome}}" "${{outcome_file}}" > "{gsmr_out_dir}/${{combination}}.gsmr_outcome.txt"
+            gcta_1.92.1b6 \
+                --bfile "{gen_bed}" \
+                --gsmr-file \
+                    "{gsmr_out_dir}/${{combination}}.gsmr_exposure.txt" \
+                    "{gsmr_out_dir}/${{combination}}.gsmr_outcome.txt" \
+                --gsmr-direction 2 \
+                --out "{gsmr_out_dir}"/"${{combination}}" \
+                --gwas-thresh {gsmr_p} \
+                --effect-plot \
+                --clump-r2 {gsmr_r2} || true
+        fi
+    done
+    ''')
+
+    gsmr_summarize = inject(region, paths, r'''
+    #!/usr/bin/env bash
+    #SBATCH --time 8:00:00
     #SBATCH --mem 40G
 
-    if [ ! -f "{gsmr_out}.gsmr" ]; then
-        gcta_1.92.1b6 \
-            --bfile "{gen_bed}" \
-            --gsmr-file "{gsmr_exposure}" "{gsmr_outcome}" \
-            --gsmr-direction 2 \
-            --out "{gsmr_out}" \
-            --gwas-thresh 0.01 \
-            --effect-plot \
-            --clump-r2 0.1
-    fi
-
-    cat "{gsmr_out}.gsmr" \
-            | grep -v 'nan.*nan.*nan.*nan' \
-            | column -t \
-            > "{gsmr_out_filtered}"
+    (
+    cat "{gsmr_out_dir}"/*.gsmr | head -n 1
+    cat "{gsmr_out_dir}"/*.gsmr  | grep -vE 'Exposure|nan'
+    ) | column -t > "{gsmr_out_filtered}"
 
     python3 _scripts/summarize_gsmr.py \
             "{gsmr_out_filtered}" \
-            "{exposure_qtl}" \
-            "{outcome_qtl}"\
-            | column -t \
+            "{exposure_qtl}.*" \
+            "{outcome_qtl}.*"\
             > "{gsmr_out_filtered}.summary"
     ''')
 
@@ -153,10 +202,15 @@ def jobs_for_region(region):
     #SBATCH --time 8:00:00
     #SBATCH --mem 40G
 
-    "{software_rscript}" _scripts/run_gsmr_plot.r \
-        "{gsmr_out}.eff_plot.gz" \
-        "{gsmr_out_filtered}" \
-        "{gsmr_plot_dir}"
+    for file in "{gsmr_out_dir}*.eff_plot.gz"
+    do
+        base={gsmr_out_dir}$(basename $file .eff_plot.gz)
+        echo $base
+        "/hpc/local/CentOS7/dhl_ec/software/R-3.4.0/bin/Rscript" _scripts/run_gsmr_plot.r \
+            "$file" \
+            "$base.gsmr" \
+            "{gsmr_plot_dir}"
+    done
     ''')
 
     basedirs = sorted(list(set(map(os.path.dirname, paths))))
@@ -168,10 +222,14 @@ def jobs_for_region(region):
     '''.lstrip('\n')).format(create_dirs)
 
     return [
-        create_dirs,
-        qtltools_exposure,
-        qtltools_outcome,
-        create_bed,
-        run_gsmr,
-        plot_gsmr
+        dict(jobname='create_dirs', job=create_dirs, depends=[]),
+        dict(jobname='exp', job=qtltools_exposure, depends=['create_dirs']),
+        dict(jobname='expc', job=qtltools_exposure_collect, depends=['exp']),
+        dict(jobname='out', job=qtltools_outcome, depends=['create_dirs']),
+        dict(jobname='outc', job=qtltools_outcome_collect, depends=['out']),
+        dict(jobname='bed', job=create_bed, depends=['create_dirs']),
+        dict(jobname='pairs', job=gsmr_pairs, depends=['expc', 'outc', 'bed']),
+        dict(jobname='gsmr', job=run_gsmr, depends=['pairs']),
+        dict(jobname='summary', job=gsmr_summarize, depends=['gsmr']),
+        dict(jobname='plot', job=plot_gsmr, depends=['summary']),
     ]
