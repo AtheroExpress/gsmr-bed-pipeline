@@ -1,8 +1,10 @@
 import configparser
 
-config = configparser.ConfigParser()
+config = configparser.ConfigParser(strict=False)
 config.read('pipeline.config')
-section = config['DEFAULT']
 
-for key in section:
-    globals()[key] = section[key]
+def load_section(section='DEFAULT'):
+    section = config[section]
+
+    for key in section:
+        globals()[key] = section[key]

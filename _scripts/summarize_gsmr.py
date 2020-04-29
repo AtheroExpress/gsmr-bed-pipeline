@@ -1,11 +1,13 @@
 import sys
 import collections
 import glob
+import json
 
 GSMR_HEADER = 'Exposure Outcome bxy se p nsnp'
 
 GSMROutRow = collections.namedtuple('GSMROutRow', 'raw ' + GSMR_HEADER)
 QTL1_2SERow = collections.namedtuple('QTL1_2SERow', 'raw phenotype pheno_chr pheno_start pheno_end strand nsnps dist genotype geno_chr geno_start geno_end p_nom r2 beta se best')
+QTL1_2SERowPerm = collections.namedtuple('QTL1_2SERowPerm', 'raw phenotype pheno_chr pheno_start pheno_end strand nsnps dist genotype geno_chr geno_start geno_end df dummy par1 par2(nindep) pnom r2 slope se pval_emp pval_bml')
 
 def read_gsmr_out(filename):
     with open(filename) as f:
@@ -18,7 +20,14 @@ def read_gsmr_out(filename):
 def read_qtltools(filename):
     with open(filename) as f:
         for line in f:
-            row = QTL1_2SERow(line.strip(), *line.split())
+            parts = line.split()
+            if len(parts) == 16:
+                row = QTL1_2SERow(line.strip(), *parts)
+            elif len(parts) == 21:
+                row = QTL1_2SERowPerm(line.strip(), *parts)
+            else:
+                print('unknown qtl format')
+                exit(1)
             yield row
 
 def extract_qtls(pattern, keep):
@@ -58,8 +67,16 @@ def main(gsmr_out_filename, exposure_qtls_filename, outcome_qtls_filename):
             outcome_region = format_region(first_outcome)
             common_genotypes = set(exposure) & set(outcome)
         except:
-            common_genotypes = ['ERROR']
-        print(*row.raw.split(),  exposure_region, outcome_region, ';'.join(common_genotypes))
+            common_genotypes = ['NA']
+        def get(row):
+            d = row._asdict()
+            del d['raw']
+            return d
+        data = {
+            'exp': [get(e) for e in exposure.values()],
+            'out': [get(o) for o in outcome.values()]
+        }
+        print(*row.raw.split(),  exposure_region, outcome_region, ';'.join(common_genotypes), json.dumps(data, separators=(',', ':')))
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:

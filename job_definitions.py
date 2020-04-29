@@ -2,13 +2,21 @@ import os
 import textwrap
 import config
 
+class DoNotUseThisSetting():
+    def __repr__(self):
+        raise Exception('DoNotUseThisSetting')
+
 def inject(region, paths, fmt):
+    assert config.qtl_mode in ['nominal', 'permutation']
     chrom = region.split(':')[0]
     def register_path(fmt):
         path = fmt.format(config.job_directory, region)
         if path not in paths:
             paths.append(path)
         return path
+    def intge(var, n):
+        assert int(var) >= n
+        return int(var)
     fmt = textwrap.dedent(fmt).lstrip('\n')
     return fmt.format(
         exposure_bed = config.exposure_bed.format(chr=chrom),
@@ -22,14 +30,16 @@ def inject(region, paths, fmt):
         gsmr_outcome = register_path('{0}/{1}/gsmr/gsmr_outcome.txt'),
         gsmr_out_dir = register_path('{0}/{1}/gsmr/combinations/'),
         gsmr_out_filtered = register_path('{0}/{1}.gsmr'),
-        gsmr_out='deprecated',
+        gsmr_out=DoNotUseThisSetting(),
         gsmr_plot_dir = register_path('{0}/{1}/plot/'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         covariance = config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
         sumstats = config.sumstats_per_chr.format(chr=chrom),
         job_directory = config.job_directory,
-        qtl_nom_pvalue = config.qtl_nom_pvalue,
+        qtl_nom_pvalue = config.qtl_nom_pvalue if config.qtl_mode == 'nominal' else DoNotUseThisSetting(),
+        qtl_permutations = config.qtl_permutations if config.qtl_mode == 'permutation' else DoNotUseThisSetting(),
+        qtl_mode = config.qtl_mode,
         qtl_window = config.qtl_window,
         qtl_seed = config.qtl_seed,
         #region = region if ':' in region else '{0:02d}'.format(int(chrom)), # hacky
@@ -39,7 +49,11 @@ def inject(region, paths, fmt):
         excl_cov_exposure_file = config.excl_cov_exposure_file,
         excl_cov_outcome_file = config.excl_cov_outcome_file,
         gsmr_r2 = config.gsmr_r2,
-        gsmr_p = config.gsmr_p
+        gsmr_p = config.gsmr_p,
+        arg_qtltools_mode = "--nominal " + str(config.qtl_nom_pvalue)
+            if config.qtl_mode == 'nominal' else "--permute " + str(config.qtl_permutations),
+        qtl_jobs=intge(config.qtl_jobs, 1),
+        gsmr_max_job_idx=intge(config.gsmr_jobs, 1)-1,
         )
 
 def jobs_for_region(region):
@@ -47,13 +61,13 @@ def jobs_for_region(region):
 
     qtltools_exposure = inject(region, paths, r'''
     #!/usr/bin/env bash
-    #SBATCH --time 10:00:00
-    #SBATCH --mem 40G
-    #SBATCH --array=1-50
+    #SBATCH --time 35:00:00
+    #SBATCH --mem 5G
+    #SBATCH --array=1-{qtl_jobs}
 
     if [ ! -f "{exposure_qtl}.${{SLURM_ARRAY_TASK_ID}}" ]; then
         vendor/qtltools_v1.2-stderr cis \
-                --nominal   "{qtl_nom_pvalue}" \
+                {arg_qtltools_mode} \
                 --vcf       "{vcf}" \
                 --bed       "{exposure_bed}" \
                 --cov       "{covariance}" \
@@ -86,13 +100,13 @@ def jobs_for_region(region):
 
     qtltools_outcome = inject(region, paths, r'''
     #!/usr/bin/env bash
-    #SBATCH --time 10:00:00
-    #SBATCH --mem 40G
-    #SBATCH --array=1-50
+    #SBATCH --time 35:00:00
+    #SBATCH --mem 5G
+    #SBATCH --array=1-{qtl_jobs}
 
     if [ ! -f "{outcome_qtl}.${{SLURM_ARRAY_TASK_ID}}" ]; then
         vendor/qtltools_v1.2-stderr cis \
-                --nominal   "{qtl_nom_pvalue}" \
+                {arg_qtltools_mode} \
                 --vcf       "{vcf}" \
                 --bed       "{outcome_bed}" \
                 --cov       "{covariance}" \
@@ -153,7 +167,7 @@ def jobs_for_region(region):
     #!/usr/bin/env bash
     #SBATCH --time 2:00:00
     #SBATCH --mem 40G
-    #SBATCH --array 0-99
+    #SBATCH --array 0-{gsmr_max_job_idx}
 
     cat "{gsmr_combinations}" \
         | awk "(NR-1)%${{SLURM_ARRAY_TASK_COUNT}} == ${{SLURM_ARRAY_TASK_ID}}" \

@@ -1,10 +1,15 @@
 import os
+import sys
 import textwrap
 
 import job_definitions
 import config
 
 def main():
+
+    config.load_section('DEFAULT')
+    for section in sys.argv[1:]:
+        config.load_section(section)
 
     os.makedirs(os.path.join(config.job_directory, 'excl_cov'), exist_ok=True)
 
@@ -40,7 +45,7 @@ def main():
                 else:
                     dep_arg = ''
                 jobfile = submit_file + '.' + jobname
-                print(f'output=$(sbatch {dep_arg} -J {jobname} -e {regiondir}/{jobname}.submit.out -o {regiondir}/{jobname}.submit.out {jobfile})', file=f)
+                print(f'output=$(sbatch {dep_arg} -J {jobname}{region} -e {regiondir}/{jobname}.submit.out -o {regiondir}/{jobname}.submit.out {jobfile})', file=f)
                 with open(jobfile, 'w') as g:
                     print(job['job'], file=g)
                 print('echo $output', file=f)
