@@ -33,7 +33,9 @@ def inject(region, paths, fmt):
         gsmr_out=DoNotUseThisSetting(),
         gsmr_plot_dir = register_path('{0}/{1}/plot/'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
-        covariance = config.covariance,
+        qtl_extra_opts = config.qtl_extra_opts,
+        covariance_exposure = config, 'covariance_exposure', False) or config.covariance,
+        covariance_outcome = getattr(config, 'covariance_outcome', False) or config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
         sumstats = config.sumstats_per_chr.format(chr=chrom),
         job_directory = config.job_directory,
@@ -70,11 +72,12 @@ def jobs_for_region(region):
                 {arg_qtltools_mode} \
                 --vcf       "{vcf}" \
                 --bed       "{exposure_bed}" \
-                --cov       "{covariance}" \
+                --cov       "{covariance_exposure}" \
                 --out       "{exposure_qtl}".${{SLURM_ARRAY_TASK_ID}} \
                 --window    "{qtl_window}" \
                 --exclude-covariates "{excl_cov_outcome_file}" \
                 --seed      "{qtl_seed}" \
+                "{qtl_extra_opts}" \
                 --std-err \
                 --chunk ${{SLURM_ARRAY_TASK_ID}} ${{SLURM_ARRAY_TASK_COUNT}}
     fi
@@ -109,11 +112,12 @@ def jobs_for_region(region):
                 {arg_qtltools_mode} \
                 --vcf       "{vcf}" \
                 --bed       "{outcome_bed}" \
-                --cov       "{covariance}" \
+                --cov       "{covariance_outcome}" \
                 --out       "{outcome_qtl}".${{SLURM_ARRAY_TASK_ID}} \
                 --window    "{qtl_window}" \
                 --exclude-covariates "{excl_cov_exposure_file}" \
                 --seed      "{qtl_seed}" \
+                "{qtl_extra_opts}" \
                 --std-err \
                 --chunk ${{SLURM_ARRAY_TASK_ID}} ${{SLURM_ARRAY_TASK_COUNT}}
     fi
