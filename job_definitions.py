@@ -34,7 +34,7 @@ def inject(region, paths, fmt):
         gsmr_plot_dir = register_path('{0}/{1}/plot/'),
         gen_bed = register_path('{0}/{1}/gsmr/bed'),
         qtl_extra_opts = config.qtl_extra_opts,
-        covariance_exposure = config, 'covariance_exposure', False) or config.covariance,
+        covariance_exposure = getattr(config, 'covariance_exposure', False) or config.covariance,
         covariance_outcome = getattr(config, 'covariance_outcome', False) or config.covariance,
         vcf = config.vcf_per_chr.format(chr=chrom),
         sumstats = config.sumstats_per_chr.format(chr=chrom),
