@@ -46,6 +46,7 @@ slurm-*.out
 /2020-05-14-nom-expr+tmm-filt-save-all/
 /2020-05-22-nom-cpg-exclude-no-peer-perchr-p1/
 /2020-05-22-nom-cpg-exclude-no-peer-perchr/
+/2020-06-09-peer-opt/
 /filtered/
 /long
 /missing

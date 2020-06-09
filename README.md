@@ -18,6 +18,26 @@ from CpG beta-values and RNAseq counts.
 
 ## Usage:
 
- - Edit `pipeline.config`.
- - `python3 main.py`
- - Execute printed bash statements to submit jobs
+### Edit `pipeline.config`.
+
+It is recommended to keep your config under a separate profile, instead of editing the `DEFAULT` settings:
+
+```
+[peer]
+    covariance_exposure = /hpc/dhl_ec/llandsmeer/_atheroexpress/peer/full40/COVARIATES40MFULL
+    covariance_outcome = /hpc/dhl_ec/llandsmeer/_atheroexpress/peer_eqtl/full70/PEER70RNASEQ
+    job_directory = 2020-06-09-peer-opt
+    qtl_mode = nominal
+    exclude_covariates_exposure =
+    exclude_covariates_outcome =
+```
+
+### Execute `python3 main.py <your profile>`
+
+This will generate the jobfiles, and print bash commands to execute submit those jobs
+on the command line. Leave `<your profile>` empty to create the `DEFAULT` job.
+
+### Submit jobs
+
+Execute the output of `main.py`. For a test run, you might want to run only a single
+line instead of all output.
